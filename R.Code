@@ -1,0 +1,37 @@
+consumer_key <- 'x'
+consumer_secret <- 'x'
+access_token <- 'x'
+access_secret <- 'x'
+setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
+
+belgium <- searchTwitter("#ikwilhelpen", n = 5000, lang = "en")
+belgium_2 <- searchTwitter("#ikwilhelpen",since ='2016-03-20', until= '2016-03-26')
+
+# Cleaning the data 
+library(NLP)
+library(tm)
+
+belgium_text = sapply(belgium, function(x) x$text)
+head(belgium_text)
+belgium_text <- iconv(belgium_text,to="utf-8-mac")
+belgium_corpus = Corpus(VectorSource(belgium_text))
+tdm = TermDocumentMatrix(belgium_corpus, control =list(removePunctuation = TRUE, tolower= TRUE, stopwords = c('ikwilhelpen', stopwords(kind = "en"))))
+m = as.matrix(tdm)
+word_freqs = sort(rowSums(m), decreasing = TRUE)
+head(word_freqs)
+dm = data.frame(word = names(word_freqs), freq = word_freqs)
+wordcloud(dm$word, dm$freq, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+
+#Removing Retweets 
+bel.df <- df[!df$isRetweet == "TRUE", ]
+belgium_text = sapply(bel.df, function(x) x$text)
+
+tweets <- readLines("HW3-BDS.txt")
+length(tweets)
+tweets[seq(1,length(tweets),17)]
+tweetmat <- t(matrix(tweets, nrow=17))
+tweetcsvs <- apply(tweetmat, 1,  FUN=function(a){paste(a,collapse=",")})
+writeLines(tweetcsvs, con="fixtweets.csv")
+
+data <- read.csv("fixtweets.csv")
+data.df <-as.data.frame(data)
