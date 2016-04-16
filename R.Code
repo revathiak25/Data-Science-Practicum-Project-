@@ -35,3 +35,28 @@ writeLines(tweetcsvs, con="fixtweets.csv")
 
 data <- read.csv("fixtweets.csv")
 data.df <-as.data.frame(data)
+
+unlisted <-unlist(data)
+
+## Classifying data based on food 
+food <- grep("food", unlisted, value =T)
+meal <-grep("meal", unlisted, value = T)
+dinner <-grep("dinner", unlisted, value = T)
+c.food <- c(food, meal, dinner)
+
+##Classifying data based on shelter 
+shelter <- grep("shelter", unlisted, value =T)
+room <-grep("room", unlisted, value = T)
+stay <-grep("stay", unlisted, value =T)
+bed <-grep("bed", unlisted, value = T)
+couch <- grep("couch", unlisted, value =T)
+c.shelter <- c(shelter, room, stay, bed, couch)
+
+##Classifying data based on travel
+travel <- grep("travel", unlisted, value =T)
+ride <-grep("ride", unlisted, value = T)
+pick <-grep("pick up", unlisted, value =T)
+car <-grep("car", unlisted, value = T)
+stranded <-grep("")
+c.travel <- c(travel, ride, pick, car)
+
