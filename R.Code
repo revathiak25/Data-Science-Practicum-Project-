@@ -1,13 +1,14 @@
-consumer_key <- 'x'
-consumer_secret <- 'x'
-access_token <- 'x'
-access_secret <- 'x'
+## Once the Twitter API has been generated, input the various keys in the command line below. 
+library(twitteR)
+consumer_key <- 'xxxx'
+consumer_secret <- 'xxxx'
+access_token <- 'xxxx'
+access_secret <- 'xxxx'
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
 belgium <- searchTwitter("#ikwilhelpen", n = 5000, lang = "en")
-belgium_2 <- searchTwitter("#ikwilhelpen",since ='2016-03-20', until= '2016-03-26')
 
-# Cleaning the data 
+# For cleaning the data set and generating a wordcloud 
 library(NLP)
 library(tm)
 
@@ -23,9 +24,11 @@ dm = data.frame(word = names(word_freqs), freq = word_freqs)
 wordcloud(dm$word, dm$freq, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 
 #Removing Retweets 
+df <- as.data.frame(belgium)
 bel.df <- df[!df$isRetweet == "TRUE", ]
 belgium_text = sapply(bel.df, function(x) x$text)
 
+## Lost the existing dataset and had to create a new dataframe from a txt file 
 tweets <- readLines("HW3-BDS.txt")
 length(tweets)
 tweets[seq(1,length(tweets),17)]
@@ -33,30 +36,124 @@ tweetmat <- t(matrix(tweets, nrow=17))
 tweetcsvs <- apply(tweetmat, 1,  FUN=function(a){paste(a,collapse=",")})
 writeLines(tweetcsvs, con="fixtweets.csv")
 
-data <- read.csv("fixtweets.csv")
+data <- read.csv("fixtweets.csv", stringsAsFactors=FALSE)
 data.df <-as.data.frame(data)
 
-unlisted <-unlist(data)
+## To identify all the possible words that were used to provide help and create a list that can be used later to identify help based tweets 
+food <- grep("food", data.df$Tweet, value =T)
+meal <-grep("meal", data.df$Tweet, value = T)
+dinner <-grep("dinner", data.df$Tweet, value = T)
+shelter <- grep("shelter", data.df$Tweet, value =T)
+room <-grep("room", data.df$Tweet, value = T)
+stay <-grep("stay",data.df$Tweet , value =T)
+bed <-grep("bed", data.df$Tweet, value = T)
+couch <- grep("couch", data.df$Tweet, value =T)
+travel <- grep("travel", data.df$Tweet, value =T)
+ride <-grep("ride", data.df$Tweet, value = T)
+pick <-grep("pick up", data.df$Tweet, value =T)
+car <-grep("car", data.df$Tweet, value = T)
 
-## Classifying data based on food 
-food <- grep("food", unlisted, value =T)
-meal <-grep("meal", unlisted, value = T)
-dinner <-grep("dinner", unlisted, value = T)
-c.food <- c(food, meal, dinner)
+## Creating a list with all places that were affected during the attacks 
+places <- c("Antwerp","antwerp", "Laken","laken", "Ninoofse Poort","ninoofse poort", "Ninove", "ninove",
+            "Berchem Station","berchem","Leuven","leuven","Ghent","ghent","Mechelen","mechelen",
+            "Cimeti","cimeti","Diest","diest","Fritkot","fritkot",
+            "Jette","jette","Zaventem","zaventem","Madou","madou","Eastmidland", "eastmidland", 
+            "Brusselsairport","brusselsairport","Vilvoodre","vilvoodre","Dilbeek","dilbeek", "NATO",
+            "Evere","evere","Grimbergen","grimbergen", "Wemmel","wemmel","Asse","asse", "Montgomery","montgomery",
+            "Halle","halle", "Van Etterbeek","van etterbreek","Bruges","bruges","Turnhout","turnhout",
+            "Madou","madou","Laeken","laeken")
 
-##Classifying data based on shelter 
-shelter <- grep("shelter", unlisted, value =T)
-room <-grep("room", unlisted, value = T)
-stay <-grep("stay", unlisted, value =T)
-bed <-grep("bed", unlisted, value = T)
-couch <- grep("couch", unlisted, value =T)
-c.shelter <- c(shelter, room, stay, bed, couch)
+## To identify location in tweet, extract them and append to dataframe 
+makeLocString <- function(tweet) {
+  match.tmp <- gregexpr(paste(places,collapse="|"), tweet)
+  return(paste(regmatches(tweet, match.tmp)[[1]], collapse="-"))
+}
 
-##Classifying data based on travel
-travel <- grep("travel", unlisted, value =T)
-ride <-grep("ride", unlisted, value = T)
-pick <-grep("pick up", unlisted, value =T)
-car <-grep("car", unlisted, value = T)
-stranded <-grep("")
-c.travel <- c(travel, ride, pick, car)
+locssss <- unlist(lapply(data.df$Tweet, FUN=makeLocString))
+append(locssss, data.df)
 
+## Add new dataframe with updated locations 
+new <- read.csv("Updated.csv")
+
+##To identify type of help offered, extract them and append to dataframe
+help_offered <-c("food","dinner","meal","shelter","room","stay","bed","couch","travel","ride","pick up","car")
+
+makeHelpString <- function(tweet) {
+  match1.tmp <- gregexpr(paste(help_offered,collapse="|"), tweet)
+  return(paste(regmatches(tweet, match1.tmp)[[1]], collapse="-"))
+}
+helpp <- unlist(lapply(new$Tweet, FUN=makeHelpString))
+
+##Updated Data Frame
+ID <- data.df$UserID
+Tweet <-data.df$Tweet
+Location <- locssss
+DateTime <-data.df$Date.Time
+Help <- helpp
+update <- data.frame(ID, Tweet, Location, DateTime, Help)
+
+## Simplifying the categories for help 
+update$Help <- as.character(update$Help)
+update[which(update$Help == 'ride'), 'Help'] <- 'Travel'
+update[which(update$Help == 'pick up'), 'Help'] <- 'Travel'
+update[which(update$Help == 'car'), 'Help'] <- 'Travel'
+update[which(update$Help == 'dinner'), 'Help'] <- 'food'
+update[which(update$Help == 'meal'), 'Help'] <- 'food'
+update[which(update$Help == 'room'), 'Help'] <- 'shelter'
+update[which(update$Help == 'stay'), 'Help'] <- 'shelter'
+update[which(update$Help == 'bed'), 'Help'] <- 'shelter'
+update[which(update$Help == 'couch'), 'Help'] <- 'shelter'
+
+#To remove any tweet that does not have a specified location and help based tag
+na.omit(update$Location)
+na.omit(update$Help)
+write.csv(update, "Updated.csv")
+new <- read.csv("Updated.csv")  
+
+##Getting Lattitudes and Longitudes of places
+cities <- sort(c("Antwerp","antwerp", "Laken","laken", "Ninoofse Poort","ninoofse poort", "Ninove", "ninove",
+                 "Berchem Station","berchem","Leuven","leuven","Ghent","ghent","Mechelen","mechelen",
+                 "Cimeti","cimeti","Diest","diest","Fritkot","fritkot",
+                 "Jette","jette","Zaventem","zaventem","Madou","madou","Eastmidland", "eastmidland", 
+                 "Brusselsairport","brusselsairport","Vilvoodre","vilvoodre","Dilbeek","dilbeek", "NATO",
+                 "Evere","evere","Grimbergen","grimbergen", "Wemmel","wemmel","Asse","asse", "Montgomery","montgomery",
+                 "Halle","halle", "Van Etterbeek","van etterbreek","Bruges","bruges","Turnhout","turnhout",
+                 "Madou","madou","Laeken","laeken","Brussels","brussels"))
+
+freq <- as.data.frame(table(cities))
+
+library(ggmap)
+lonlat <- geocode(unique(cities))
+cities <- cbind(freq,lonlat)
+
+## Merging datasets new and cities to get lonlat 
+m1 <- merge(new, cities, by.x="Location", by.y="cities")
+write.csv(m1, "Merged.csv")
+
+final <- read.csv("Merged.csv")
+
+##Data Visualization 
+library(ggmap)
+library(ggplot2)
+eu <- c("Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic", 
+        "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", 
+        "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", 
+        "Malta", "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", 
+        "Slovenia", "Spain", "Sweden", "United Kingdom")
+warning("No matches in database for ", paste(setdiff(eu, map_data('world')$region), collapse=", ")) 
+europe <- map_data('world', region=eu)
+library(ggplot2)
+belgium_map <- ggplot(europe, aes(x=long, y=lat, group=group)) +
+  geom_polygon(fill="white", colour="black") +
+  xlim(2.5,7.5) + ylim(48,55) +
+  geom_point(data=final, inherit.aes=F, aes(x=Longitude, y=Latitude, size=Help), colour="red", alpha=.8) + 
+  geom_text(data=final, inherit.aes=F, aes(x=Longitude, y=Latitude, label=Location), vjust=1, colour="red", alpha=.5)
+
+##Incorporating color in the graph
+ggplot(europe, aes(x=long, y=lat,legend= "topleft", group=group)) +
+  geom_polygon(fill="white", colour="black") +
+  xlim(2.5,7.5) + ylim(48,55) +
+  geom_point(data=final, inherit.aes=F, aes(x=Longitude, y=Latitude,color=Help, size=Help), alpha=.8) + 
+  geom_text(data=final, inherit.aes=F, aes(x=Longitude, y=Latitude, label=Location), vjust=1, alpha=.5)
+
+## Tableau Visualization - https://public.tableau.com/profile/revathi.anil.kumar#!/
